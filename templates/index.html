@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FX Converter Pro | Hrishikesh Shahane</title>
+    <meta name="description" content="Advanced currency converter with real-time exchange rates">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Favicon -->
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+</head>
+<body>
+    <!-- Animated background particles -->
+    <canvas id="particles" class="particles"></canvas>
+    
+    <!-- Theme toggle -->
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
+        <i class="fas fa-moon"></i>
+    </button>
+    
+    <!-- Main container -->
+    <div class="container">
+        <h1>FX Converter Pro</h1>
+        
+        {% if error %}
+        <div class="error" role="alert">
+            <i class="fas fa-exclamation-circle"></i> {{ error }}
+        </div>
+        {% endif %}
+        
+        <form method="POST" id="converterForm">
+            <div class="form-group">
+                <label for="amount">Amount</label>
+                <div class="input-wrapper">
+                    <span class="input-icon"><i class="fas fa-money-bill-wave"></i></span>
+                    <input type="number" id="amount" name="amount" step="0.01" min="0" required 
+                           value="{{ request.form.get('amount', '') }}" placeholder="0.00">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="from_currency">From Currency</label>
+                <div class="input-wrapper">
+                    <span class="input-icon"><i class="fas fa-flag"></i></span>
+                    <select id="from_currency" name="from_currency" required>
+                        <option value="">Select currency</option>
+                        {% for code, name in currencies.items() %}
+                        <option value="{{ code }}" 
+                                {% if request.form.get('from_currency') == code %}selected{% endif %}>
+                            {{ code }} - {{ name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="to_currency">To Currency</label>
+                <div class="input-wrapper">
+                    <span class="input-icon"><i class="fas fa-flag"></i></span>
+                    <select id="to_currency" name="to_currency" required>
+                        <option value="">Select currency</option>
+                        {% for code, name in currencies.items() %}
+                        <option value="{{ code }}" 
+                                {% if request.form.get('to_currency') == code %}selected{% endif %}>
+                            {{ code }} - {{ name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn">
+                <i class="fas fa-exchange-alt"></i> Convert
+            </button>
+        </form>
+        
+        {% if converted_amount %}
+        <div class="result" id="conversionResult">
+            <i class="fas fa-chart-line"></i>
+            <div>
+                <div class="result-amount">{{ "%.2f"|format(converted_amount) }} {{ to_currency }}</div>
+                <div class="result-text">{{ amount }} {{ from_currency }} equals</div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="footer">
+            <div class="social-icons">
+                <a href="https://www.linkedin.com/in/hrishikesh-shahane-a0a19a258/" class="social-icon" target="_blank" aria-label="LinkedIn" rel="noopener noreferrer">
+                    <i class="fab fa-linkedin-in"></i>
+                </a>
+                <a href="https://hrishikesh-shahane-portfolio.vercel.app/" class="social-icon" target="_blank" aria-label="Website" rel="noopener noreferrer">
+                    <i class="fas fa-globe"></i>
+                </a>
+                <a href="https://www.instagram.com/hrishikesh__2003/" class="social-icon" target="_blank" aria-label="Instagram" rel="noopener noreferrer">
+                    <i class="fab fa-instagram"></i>
+                </a>
+                <a href="https://github.com/Hrishi-3000" class="social-icon" target="_blank" aria-label="GitHub" rel="noopener noreferrer">
+                    <i class="fab fa-github"></i>
+                </a>
+                <a href="https://www.blogger.com/profile/06534898699057353590" class="social-icon" target="_blank" aria-label="Tech Blog" rel="noopener noreferrer">
+                    <i class="fas fa-blog"></i>
+                </a>
+            </div>
+            <div class="creator">
+                Crafted By Hrishikesh Shahane
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Theme toggle functionality
+        const themeToggle = document.getElementById('themeToggle');
+        const icon = themeToggle.querySelector('i');
+        
+        // Check for saved theme preference or use preferred color scheme
+        const currentTheme = localStorage.getItem('theme') || 
+                            (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        
+        // Apply the current theme
+        if (currentTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            icon.classList.replace('fa-moon', 'fa-sun');
+        }
+        
+        // Toggle theme on button click
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            
+            if (currentTheme === 'dark') {
+                document.documentElement.removeAttribute('data-theme');
+                icon.classList.replace('fa-sun', 'fa-moon');
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                icon.classList.replace('fa-moon', 'fa-sun');
+                localStorage.setItem('theme', 'dark');
+            }
+        });
+
+        // Particle background animation
+        const canvas = document.getElementById('particles');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        const particles = [];
+        const particleCount = window.innerWidth < 768 ? 30 : 60;
+        
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 3 + 1;
+                this.speedX = Math.random() * 1 - 0.5;
+                this.speedY = Math.random() * 1 - 0.5;
+                this.color = `rgba(139, 195, 74, ${Math.random() * 0.5 + 0.1})`;
+            }
+            
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                
+                if (this.x > canvas.width || this.x < 0) this.speedX *= -1;
+                if (this.y > canvas.height || this.y < 0) this.speedY *= -1;
+            }
+            
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        function init() {
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle());
+            }
+        }
+        
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update();
+                particles[i].draw();
+            }
+            
+            connect();
+            requestAnimationFrame(animate);
+        }
+        
+        function connect() {
+            for (let a = 0; a < particles.length; a++) {
+                for (let b = a; b < particles.length; b++) {
+                    const dx = particles[a].x - particles[b].x;
+                    const dy = particles[a].y - particles[b].y;
+                    const distance = dx * dx + dy * dy;
+                    
+                    if (distance < (canvas.width / 4) * (canvas.height / 4)) {
+                        ctx.strokeStyle = `rgba(139, 195, 74, ${1 - distance / 20000})`;
+                        ctx.lineWidth = 0.5;
+                        ctx.beginPath();
+                        ctx.moveTo(particles[a].x, particles[a].y);
+                        ctx.lineTo(particles[b].x, particles[b].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+        
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+        
+        init();
+        animate();
+
+        // Form submission animation
+        const form = document.getElementById('converterForm');
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                const btn = form.querySelector('button[type="submit"]');
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Converting...';
+                btn.disabled = true;
+            });
+        }
+
+        // Result animation
+        const result = document.getElementById('conversionResult');
+        if (result) {
+            result.style.animation = 'float 4s ease-in-out infinite';
+        }
+    </script>
+</body>
+</html>
